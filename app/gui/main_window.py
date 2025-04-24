@@ -219,6 +219,58 @@ class MainWindow(QMainWindow):
         extraction_config = ExtractionConfig()
         extraction_config.update_from_field_ids(selected_field_ids)
 
+        # איפוס רכיב התוצאות
+        self.results_widget.clear_results()
+
+        # עדכון ממשק המשתמש
+        self.progress_bar.setValue(0)
+        self.extract_btn.setEnabled(False)
+        self.status_label.setText("מתחיל חילוץ...")
+
         # הפעלת תהליכון החילוץ
         self.extraction_thread = ExtractionThread(self.selected_pdf_files, extraction_config)
-        self.extraction_thread.progress_
+
+        # חיבור אותות התהליכון
+        self.extraction_thread.progress.connect(self.update_progress)
+        self.extraction_thread.file_progress.connect(self.update_status)
+        self.extraction_thread.extraction_complete.connect(self.handle_extraction_results)
+
+        # הפעלת התהליכון
+        self.extraction_thread.start()
+
+    def update_progress(self, value):
+        """
+        עדכון פס ההתקדמות.
+
+        Args:
+            value (int): ערך ההתקדמות באחוזים
+        """
+        self.progress_bar.setValue(value)
+
+    def update_status(self, file_name, percent):
+        """
+        עדכון הודעת סטטוס.
+
+        Args:
+            file_name (str): שם הקובץ המעובד כעת
+            percent (float): אחוז ההתקדמות
+        """
+        message = f"מעבד קובץ {os.path.basename(file_name)}... ({int(percent)}%)"
+        self.status_label.setText(message)
+
+    def handle_extraction_results(self, results):
+        """
+        טיפול בתוצאות החילוץ.
+
+        Args:
+            results (list): רשימת תוצאות החילוץ
+        """
+        # עדכון ממשק המשתמש
+        self.extract_btn.setEnabled(True)
+        self.status_label.setText(f"הסתיים חילוץ של {len(results)} קבצים")
+
+        # הצגת התוצאות
+        self.results_widget.update_results(results, self.field_selection.get_selected_field_ids())
+
+        # התאמת גדלים שוב לאחר מילוי התוצאות
+        self.splitter.setSizes([200, 600])
